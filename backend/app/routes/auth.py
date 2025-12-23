@@ -1,62 +1,105 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
+from firebase_admin import auth as firebase_auth
+
 from app.db.session import get_db
-from app.model.model import Users
-from app.schema.schema import UserCreate, UserResponse
-import firebase_admin
-from firebase_admin import auth
+from app.model.model import Users, AuthProviderEnum, UserAuthProviders
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+security = HTTPBearer()
 
 
-@router.post("/login")
-def login(id_token: str, db: Session = Depends(get_db)):
-    try:
-        decoded_token = auth.verify_id_token(id_token)
-        email = decoded_token.get("email")
+def verify_firebase_token(token: str):
+    return firebase_auth.verify_id_token(token)
 
-        user = db.query(Users).filter(Users.email == email).first()
-        if not user:
-            raise HTTPException(status_code=400, detail="User not found")
+@router.post("/register")
+def register_user(data: dict = Body(...),credentials=Depends(security),db: Session = Depends(get_db)):
+    token = credentials.credentials
+    decoded = verify_firebase_token(token)
 
-        return {
-            "success": True,
-            "message": "logged in successfully",
-            "user": UserResponse.from_orm(user)
-        }
+    firebase_uid = decoded["uid"]
+    email = decoded.get("email")
+    email_verified = decoded.get("email_verified", False)
 
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Email not found in Firebase token",)
 
+    raw_provider = decoded.get("firebase", {}).get("sign_in_provider", "password")
+    
+    if raw_provider == "google.com":
+        provider_enum = AuthProviderEnum.google
+    else:
+        provider_enum = AuthProviderEnum.password
 
-@router.post("/signup")
-def signup(data: UserCreate, id_token: str, db: Session = Depends(get_db)):
-    try:
-        decoded_token = auth.verify_id_token(id_token)
-        email = decoded_token.get("email")
+    full_name = None
 
-        if email != data.email:
-            raise HTTPException(status_code=400, detail="Email mismatch")
+    if provider_enum == AuthProviderEnum.password:
+    
+        full_name = data.get("full_name")
 
-        existing_user = db.query(Users).filter(Users.email == email).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="User already exist")
+        if not full_name:
+            first_name = data.get("first_name")
+            last_name = data.get("last_name")
+            if first_name and last_name:
+                full_name = f"{first_name} {last_name}"
 
-        new_user = Users(
+        if not full_name:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="full_name is required for email/password signup")
+
+    else:
+        full_name = decoded.get("name") or decoded.get("display_name")
+
+    user = db.query(users).filter(users.firebase_uid == firebase_uid).first()
+
+    if not user:
+        user = users(
+            firebase_uid=firebase_uid,
             email=email,
-            password="firebase_auth",
-            role=data.role
+            full_name=full_name,
+            is_verified=email_verified,
+            auth_provider=provider_enum,
         )
-
-        db.add(new_user)
+        db.add(user)
         db.commit()
-        db.refresh(new_user)
+        db.refresh(user)
+    else:
+        updated = False
 
-        return {
-            "success": True,
-            "message": "signup in successfully",
-            "user": UserResponse.from_orm(new_user)
-        }
+        if not user.full_name and full_name:
+            user.full_name = full_name
+            updated = True
 
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid Firebase token")
+        if email_verified and not user.is_verified:
+            user.is_verified = True
+            updated = True
+
+        if user.auth_provider != provider_enum:
+            user.auth_provider = provider_enum
+            updated = True
+
+        if updated:
+            db.commit()
+            db.refresh(user)
+
+    # ---- Ensure provider entry exists ----
+    provider_row = db.query(UserAuthProviders).filter(UserAuthProviders.user_id == user.id,UserAuthProviders.provider == provider_enum).first()
+    
+    if not provider_row:
+        provider_row = UserAuthProviders(
+            user_id=user.id,
+            provider=provider_enum,
+            provider_uid=firebase_uid,
+        )
+        db.add(provider_row)
+        db.commit()
+
+    return {
+        "message": "User registered successfully",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "provider": provider_enum.value,
+        },
+    }

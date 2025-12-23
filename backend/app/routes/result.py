@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.model.model import Result, Exam, Student, Subject
+from app.dependencies.role import require_roles
+from app.model.model import Users, RoleEnum
 
 router = APIRouter(prefix="/result", tags=["Result"])
 
@@ -12,7 +14,8 @@ def create_result(
     marks: int,
     rollNumber: str,
     subjects: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))
+
 ):
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
     if not exam:
@@ -40,14 +43,10 @@ def create_result(
     db.commit()
     db.refresh(result)
 
-    return {
-        "message": "result created successfully",
-        "result": result
-    }
-
+    return {"message": "result created successfully","result": result}
 
 @router.get("/student/{student_id}")
-def fetch_results(student_id: int, db: Session = Depends(get_db)):
+def fetch_results(student_id: int, db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.PARENT, RoleEnum.STUDENT))):
     results = db.query(Result).filter(Result.student_id == student_id).all()
     if not results:
         raise HTTPException(status_code=404, detail="no student found with this id")

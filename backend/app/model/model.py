@@ -1,5 +1,5 @@
 from app.db.base import Base
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime,Boolean
 from sqlalchemy import Enum as SAEnum
 from datetime import datetime
 from enum import Enum  
@@ -18,10 +18,10 @@ class AttendanceStatusEnum(str, Enum):
     Late = "Late"
 
 class RoleEnum(str, Enum):
-    admin = "admin"
-    student = "student"
-    teacher = "teacher"
-    parent = "parent"
+    ADMIN = "ADMIN"
+    STUDENT = "STUDENT"
+    TEACHER = "TEACHER"
+    PARENT = "PARENT"
 
 class PaymentStatusEnum(str, Enum):
     Initiated = "Initiated"
@@ -32,13 +32,32 @@ class FeeStatusEnum(str, Enum):
     Paid = "Paid"
     Pending = "Pending"
 
+
+class AuthProviderEnum(str, Enum):
+    password = "password"    
+    google = "google"          
+
+
 class Users(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    firebase_uid = Column(String, unique=True, index=True, nullable=False)
+    auth_provider = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
     password = Column(String, nullable=False)
     role = Column(SAEnum(RoleEnum), nullable=False)
+
+class UserAuthProviders(Base):
+    __tablename__ = "userauthprovider"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    provider = Column(String, nullable=False)
+    provider_uid = Column(String, nullable=False)    
 
 
 class Class(Base):
@@ -47,6 +66,7 @@ class Class(Base):
     id = Column(Integer, primary_key=True, index=True)
     classname = Column(String, nullable=False)
     section = Column(String, default="A")
+    teacher_id = Column(Integer, ForeignKey("teacher.id"))
 
 
 class Student(Base):
@@ -58,6 +78,7 @@ class Student(Base):
     class_id = Column(Integer, ForeignKey("class.id"), nullable=False)
     stream = Column(String)
     parent_id = Column(Integer, ForeignKey("parent.id"))
+    is_active = Column(Boolean, default=True)
 
 
 class Teacher(Base):
@@ -67,6 +88,7 @@ class Teacher(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     experience = Column(Integer, default=0)
     qualification = Column(String)
+    is_active = Column(Boolean, default=True)
 
 
 class Parent(Base):
@@ -81,9 +103,10 @@ class Subject(Base):
     __tablename__ = "subject"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
+    name = Column(String, nullable=False)
     class_id = Column(Integer, ForeignKey("class.id"), nullable=False)
     teacher_id = Column(Integer, ForeignKey("teacher.id"))
+
 
 
 class Exam(Base):

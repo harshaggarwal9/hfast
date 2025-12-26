@@ -72,7 +72,7 @@ class Class(Base):
 class Student(Base):
     __tablename__ = "student"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)               
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     rollnumber = Column(String, unique=True, nullable=False)
     class_id = Column(Integer, ForeignKey("class.id"), nullable=False)

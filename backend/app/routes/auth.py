@@ -2,9 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from firebase_admin import auth as firebase_auth
-
 from app.db.session import get_db
-from app.model.model import Users, AuthProviderEnum, UserAuthProviders
+from app.model.model import Users as users, AuthProviderEnum, UserAuthProviders
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 security = HTTPBearer()
@@ -101,5 +100,70 @@ def register_user(data: dict = Body(...),credentials=Depends(security),db: Sessi
             "email": user.email,
             "full_name": user.full_name,
             "provider": provider_enum.value,
+        },
+    }
+
+
+@router.post("/login")
+def login_user(credentials=Depends(security),db: Session = Depends(get_db)):
+
+    token = credentials.credentials
+    try:
+        decoded = verify_firebase_token(token)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Invalid or expired Firebase token",)
+
+    firebase_uid = decoded["uid"]
+    email = decoded.get("email")
+    email_verified = decoded.get("email_verified", False)
+
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Email not found in Firebase token",)
+
+    raw_provider = decoded.get("firebase", {}).get("sign_in_provider", "password")
+
+    if raw_provider == "google.com":
+        provider_enum = AuthProviderEnum.google
+    else:
+        provider_enum = AuthProviderEnum.password
+
+    user = db.query(users).filter(users.firebase_uid == firebase_uid).first()
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail="User not registered. Please register first.",)
+
+    updated = False
+
+    if email_verified and not user.is_verified:
+        user.is_verified = True
+        updated = True
+
+    if user.auth_provider != provider_enum:
+        user.auth_provider = provider_enum
+        updated = True
+
+    if updated:
+        db.commit()
+        db.refresh(user)
+
+    provider_row = (db.query(UserAuthProviders).filter(UserAuthProviders.user_id == user.id,UserAuthProviders.provider == provider_enum,).first())
+
+    if not provider_row:
+        provider_row = UserAuthProviders(
+            user_id=user.id,
+            provider=provider_enum,
+            provider_uid=firebase_uid,
+        )
+        db.add(provider_row)
+        db.commit()
+
+    return {
+        "message": "Login successful",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "provider": provider_enum.value,
+            "is_verified": user.is_verified,
         },
     }

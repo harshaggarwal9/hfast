@@ -10,18 +10,14 @@ router = APIRouter(prefix="/parent", tags=["Parent"])
 
 
 @router.post("/{user_id}")
-def create_parent(
-    user_id: int,
-    phone: str,
-    db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))
-):
+def create_parent(user_id: int,phone: str,db: Session = Depends(get_db),
+                  current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))):
 
     user = db.query(Users).filter(Users.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     existing_parent = db.query(Parent).filter(Parent.user_id == user_id).first()
-    
 
     if existing_parent:
         raise HTTPException(status_code=400,detail="Parent already exists for this user")

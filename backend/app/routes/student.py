@@ -17,7 +17,11 @@ def create_student(
     phoneNumber: str,
     db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))
 
-):
+):      
+    user = db.query(Users).filter(Users.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     parent = db.query(Parent).filter(Parent.phonenumber == phoneNumber).first()
     if not parent:
         raise HTTPException(status_code=404, detail="parent not exist first create parent")
@@ -26,10 +30,6 @@ def create_student(
     
     if not class_data:
         raise HTTPException(status_code=404, detail="class not exist first create class")
-
-    user = db.query(Users).filter(Users.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
 
     student = Student(
         user_id=user.id,

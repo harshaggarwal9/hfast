@@ -2,9 +2,8 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from firebase_admin import auth as firebase_auth
 from sqlalchemy.orm import Session
-
 from app.db.session import get_db
-from app.model.model import Users
+from app.model.model import Users as users
 
 security = HTTPBearer()
 

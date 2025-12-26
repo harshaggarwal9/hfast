@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 engine = create_engine(settings.DATABASE_URL, echo=False)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
@@ -11,3 +12,4 @@ def get_db():
         yield db
     finally:
         db.close()
+

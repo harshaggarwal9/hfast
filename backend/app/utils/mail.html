@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Account activation for ERP</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f3f4f6;
+      padding: 20px;
+    }
+
+    .card {
+      max-width: 600px;
+      margin: auto;
+      background-color: #ffffff;
+      border-radius: 0.75rem;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      padding: 2rem;
+    }
+
+    .header {
+      background: linear-gradient(to right, #06b6d4, #3b82f6);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 0.75rem 0.75rem 0 0;
+      text-align: center;
+    }
+
+    .content {
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.75rem 1.5rem;
+      background-color: #3b82f6;
+      color: white;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>🎉 Welcome, {{ name }}!</h1>
+    </div>
+
+    <div class="content">
+      <p>Your account has been <strong>successfully approved</strong> by the administrator.</p>
+      <p>You now have access to the ERP Portal.</p>
+
+      <a href="{{ portal_link }}" class="btn">Go to ERP Portal</a>
+    </div>
+
+    <div class="footer">
+      <p>© {{ year }} MJ ERP Systems. All rights reserved.</p>
+      <p>Developed and designed by Mohit Joshi and Aman Vijay Thakur</p>
+    </div>
+  </div>
+</body>
+</html>

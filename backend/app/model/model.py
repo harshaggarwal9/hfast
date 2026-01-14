@@ -1,8 +1,9 @@
 from app.db.base import Base
-from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime,Boolean
+from sqlalchemy import Column, ForeignKey, Integer, String, Float, DateTime,Boolean, Table
 from sqlalchemy import Enum as SAEnum
-from datetime import datetime
-from enum import Enum  
+from datetime import datetime, timezone
+from enum import Enum 
+from sqlalchemy.orm import relationship 
 
 class DayEnum(str, Enum):
     Monday = "Monday"
@@ -18,10 +19,10 @@ class AttendanceStatusEnum(str, Enum):
     Late = "Late"
 
 class RoleEnum(str, Enum):
-    ADMIN = "ADMIN"
-    STUDENT = "STUDENT"
-    TEACHER = "TEACHER"
-    PARENT = "PARENT"
+    ADMIN='ADMIN'
+    STUDENT='STUDENT'
+    TEACHER='TEACHER'
+    PARENT='PARENT'
 
 class PaymentStatusEnum(str, Enum):
     Initiated = "Initiated"
@@ -38,12 +39,19 @@ class AuthProviderEnum(str, Enum):
     google = "google"          
 
 
+notification_target_roles = Table(
+    "notification_target_roles",
+    Base.metadata,
+    Column("notification_id", Integer, ForeignKey("notifications.id"), primary_key=True),
+    Column("role", SAEnum(RoleEnum), primary_key=True),
+)
+
 class Users(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     firebase_uid = Column(String, unique=True, index=True, nullable=False)
-    auth_provider = Column(String, nullable=False)
+    auth_provider = Column(SAEnum(AuthProviderEnum), nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -108,13 +116,13 @@ class Subject(Base):
     teacher_id = Column(Integer, ForeignKey("teacher.id"))
 
 
-
 class Exam(Base):
     __tablename__ = "exam"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    date = Column(DateTime, default=datetime.utcnow)
+    date = Column(DateTime(timezone=True), nullable=False)
+    subject_id = Column(Integer, ForeignKey("subject.id"), nullable=False)
 
 
 class Result(Base):
@@ -142,8 +150,11 @@ class Timetable(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     class_id = Column(Integer, ForeignKey("class.id"), nullable=False)
-    day = Column(SAEnum(DayEnum), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("teacher.id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("subject.id"), nullable=False)
+    day = Column(SAEnum(DayEnum), nullable=False)
+    start_time = Column(String, nullable=False)
+    end_time = Column(String, nullable=False)
 
 
 class PaymentInfo(Base):
@@ -175,3 +186,12 @@ class Attendance(Base):
     student_id = Column(Integer, ForeignKey("student.id"), nullable=False)
     date = Column(DateTime, default=datetime.utcnow, nullable=False)
     status = Column(SAEnum(AttendanceStatusEnum), nullable=False)
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True),nullable=False,default=lambda: datetime.now(timezone.utc))

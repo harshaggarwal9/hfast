@@ -1,54 +1,41 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.model.model import Result, Exam, Student, Subject
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.db.session import get_async_db
+from app.model.model import Result, Exam, Student, Subject, Users, RoleEnum
 from app.dependencies.role import require_roles
-from app.model.model import Users, RoleEnum
 
 router = APIRouter(prefix="/result", tags=["Result"])
 
 
 @router.post("/{exam_id}", status_code=201)
-def create_result(
-    exam_id: int,
-    marks: int,
-    rollNumber: str,
-    subjects: str,
-    db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))
+async def create_result(exam_id: int, marks: int, rollNumber: str, subjects: str, db: AsyncSession = Depends(get_async_db), current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER))):
 
-):
-    exam = db.query(Exam).filter(Exam.id == exam_id).first()
-    if not exam:
+    result = await db.execute(select(Exam).where(Exam.id == exam_id))
+    exam = result.scalar_one_or_none()
+    if not exam: 
         raise HTTPException(status_code=404, detail="exam not found")
-
-    student = db.query(Student).filter(Student.rollnumber == rollNumber).first()
-    if not student:
+    result = await db.execute(select(Student).where(Student.rollnumber == rollNumber))
+    student = result.scalar_one_or_none()
+    if not student: 
         raise HTTPException(status_code=404, detail="student not found")
-
-    subject = db.query(Subject).filter(Subject.name == subjects).first()
-    if not subject:
+    result = await db.execute(select(Subject).where(Subject.name == subjects))
+    subject = result.scalar_one_or_none()
+    if not subject: 
         raise HTTPException(status_code=404, detail="subject not found")
+    if subject.class_id != student.class_id: raise HTTPException(status_code=400, detail="Student is not registered for this exam")
+    result_obj = Result(marks=marks, student_id=student.id, subject_id=subject.id, exam_id=exam.id)
+    db.add(result_obj)
+    await db.commit()
+    await db.refresh(result_obj)
+    return {"message": "result created successfully", "result": result_obj}
 
-    if subject.class_id != student.class_id:
-        raise HTTPException(status_code=400, detail="Student is not registered for this exam")
-
-    result = Result(
-        marks=marks,
-        student_id=student.id,
-        subject_id=subject.id,
-        exam_id=exam.id
-    )
-
-    db.add(result)
-    db.commit()
-    db.refresh(result)
-
-    return {"message": "result created successfully","result": result}
 
 @router.get("/student/{student_id}")
-def fetch_results(student_id: int, db: Session = Depends(get_db),current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.PARENT, RoleEnum.STUDENT))):
-    results = db.query(Result).filter(Result.student_id == student_id).all()
-    if not results:
-        raise HTTPException(status_code=404, detail="no student found with this id")
+async def fetch_results(student_id: int, db: AsyncSession = Depends(get_async_db), current_user: Users = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.TEACHER, RoleEnum.PARENT, RoleEnum.STUDENT))):
 
+    result = await db.execute(select(Result).where(Result.student_id == student_id))
+    results = result.scalars().all()
+    if not results: 
+        raise HTTPException(status_code=404, detail="no student found with this id")
     return results

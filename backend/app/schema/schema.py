@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
 from enum import Enum
@@ -19,10 +19,10 @@ class AttendanceStatusEnum(str, Enum):
 
 
 class RoleEnum(str, Enum):
-    admin = "admin"
-    student = "student"
-    teacher = "teacher"
-    parent = "parent"
+    ADMIN='ADMIN'
+    STUDENT='STUDENT'
+    TEACHER='TEACHER'
+    PARENT='PARENT'
 
 
 class PaymentStatusEnum(str, Enum):
@@ -35,11 +35,13 @@ class FeeStatusEnum(str, Enum):
     Paid = "Paid"
     Pending = "Pending"
 
-
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: RoleEnum
+    full_name: Optional[str] = None
+
+
 
 
 class UserResponse(BaseModel):
@@ -106,14 +108,21 @@ class SubjectResponse(SubjectCreate):
 
 class ExamCreate(BaseModel):
     name: str
-    date: datetime
+    date: datetime            
     subject: str
-    className: str
+    classname: str = Field(alias="className")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
-class ExamResponse(ExamCreate):
+class ExamResponse(BaseModel):
     id: int
+    name: str
+    date: datetime
+    subject_id: int
+
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class ResultCreate(BaseModel):
@@ -152,23 +161,28 @@ class TimetableResponse(TimetableCreate):
 
 
 class PaymentInfoCreate(BaseModel):
-    id: str
     payment_id: Optional[str] = None
     signature: Optional[str] = None
     amount_paid: Optional[float] = None
     status: PaymentStatusEnum = PaymentStatusEnum.Initiated
 
 
-class PaymentInfoResponse(PaymentInfoCreate):
+class PaymentInfoResponse(BaseModel):
+    id: str
+    payment_id: Optional[str] = None
+    signature: Optional[str] = None
+    amount_paid: Optional[float] = None
     payment_date: datetime
+    status: PaymentStatusEnum
+
     model_config = ConfigDict(from_attributes=True)
+
 
 
 class FeeCreate(BaseModel):
     student_id: int
     amount: float
     due_date: datetime
-    payment_id: Optional[str] = None
 
 
 class FeeResponse(FeeCreate):
@@ -186,3 +200,30 @@ class AttendanceResponse(AttendanceCreate):
     date: datetime
     model_config = ConfigDict(from_attributes=True)
 
+class CreateChallanRequest(BaseModel):
+    amount: float
+    due_date: datetime
+    rollnumber: str
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    fee_id: int
+
+class NotificationCreate(BaseModel):
+    title: str
+    message: str
+    target_roles: list[RoleEnum]    
+
+
+class CreateChallanRequest(BaseModel):
+    amount: float
+    due_date: datetime
+    rollnumber: str
+
+class VerifyPaymentRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    fee_id: int

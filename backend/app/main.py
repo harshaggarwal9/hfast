@@ -16,6 +16,8 @@ from app.routes.notification import router as notification_router
 from app.routes.timetable import router as timetable_router
 from app.routes.webhook import router as webhook_router
 from app.routes.ws_manager import WebSocketManager
+from dotenv import load_dotenv
+load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

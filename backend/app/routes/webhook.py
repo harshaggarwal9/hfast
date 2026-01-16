@@ -20,11 +20,7 @@ async def handle_razorpay_webhook(request: Request,db: AsyncSession = Depends(ge
     raw_body = await request.body()
     signature = request.headers.get("x-razorpay-signature")
 
-    expected_signature = hmac.new(
-        secret.encode(),
-        raw_body,
-        hashlib.sha256
-    ).hexdigest()
+    expected_signature = hmac.new(secret.encode(),raw_body,hashlib.sha256).hexdigest()
 
     if expected_signature != signature:
         return Response(content="fail", status_code=400)

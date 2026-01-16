@@ -5,21 +5,8 @@ from app.core.config import settings
 
 ssl_context = ssl.create_default_context()
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    pool_pre_ping=True,
-    connect_args={
-        "ssl": ssl_context,
-        "timeout": 60
-    },
-)
-
-AsyncSessionLocal = sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+engine = create_async_engine(settings.DATABASE_URL,echo=False,pool_pre_ping=True,connect_args={"ssl": ssl_context,"timeout": 60})
+AsyncSessionLocal = sessionmaker(bind=engine,class_=AsyncSession,expire_on_commit=False,)
 
 async def get_async_db():
     async with AsyncSessionLocal() as session:
